@@ -40,7 +40,6 @@ function VaaniSession({
   farmer: FarmerProfile | null;
   farmerPhone: string;
 }) {
-
   const tokenSource = useMemo(() => {
     if (typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string') {
       return getSandboxTokenSource(appConfig);
