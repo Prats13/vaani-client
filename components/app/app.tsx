@@ -14,7 +14,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useDebugMode } from '@/hooks/useDebug';
 import { getSandboxTokenSource } from '@/lib/utils';
-import type { FarmerProfile } from '@/lib/vaani-api';
+import { getLiveKitToken, type FarmerProfile } from '@/lib/vaani-api';
 
 const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 
@@ -44,24 +44,11 @@ function VaaniSession({
     if (typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string') {
       return getSandboxTokenSource(appConfig);
     }
-    // Custom token source — passes farmer phone to the token endpoint
-    return TokenSource.custom(async () => {
-      const res = await fetch('/api/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone_number: farmerPhone,
-          room_config: appConfig.agentName ? { agents: [{ agent_name: appConfig.agentName }] } : {},
-        }),
-      });
-      return res.json();
-    });
+    // Call FastAPI token endpoint — generates token + dispatches the agent
+    return TokenSource.custom(() => getLiveKitToken(farmerPhone));
   }, [appConfig, farmerPhone]);
 
-  const session = useSession(
-    tokenSource,
-    appConfig.agentName ? { agentName: appConfig.agentName } : undefined
-  );
+  const session = useSession(tokenSource);
 
   return (
     <AgentSessionProvider session={session}>

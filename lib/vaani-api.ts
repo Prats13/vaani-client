@@ -28,6 +28,31 @@ export interface OutboundCallResponse {
   message: string;
 }
 
+export interface LiveKitConnectionDetails {
+  serverUrl: string;
+  roomName: string;
+  participantToken: string;
+  participantName: string;
+}
+
+/** Call FastAPI token endpoint — generates token AND dispatches the agent */
+export async function getLiveKitToken(phoneNumber: string): Promise<LiveKitConnectionDetails> {
+  const res = await fetch(`${BASE_URL}/api/v1/token`, {
+    method: 'POST',
+    headers: API_HEADERS,
+    body: JSON.stringify({ phone_number: phoneNumber }),
+  });
+  if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
+  const data = await res.json();
+  // Map FastAPI response → LiveKit connection details shape
+  return {
+    serverUrl: data.url,
+    roomName: data.room_name,
+    participantToken: data.token,
+    participantName: data.identity,
+  };
+}
+
 /** Convert a 10-digit Indian number to E.164 format */
 export function toE164(phone: string): string {
   const digits = phone.replace(/\D/g, '');
