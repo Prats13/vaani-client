@@ -1,14 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { DotsThreeVertical, Phone, VideoCamera } from '@phosphor-icons/react';
-import { useAgent, useChat, useSessionContext, useSessionMessages } from '@livekit/components-react';
+import {
+  useAgent,
+  useChat,
+  useSessionContext,
+  useSessionMessages,
+} from '@livekit/components-react';
+import type { FarmerProfile } from '@/lib/vaani-api';
+import { ChatInputBar } from './chat-input-bar';
 import type { AttachmentInput, UIMessage } from './chat-message-bubble';
 import { ChatMessageBubble } from './chat-message-bubble';
-import { ChatInputBar } from './chat-input-bar';
 
-function AgentStatusText(state: string | undefined): string {
+function agentStatusText(state: string | undefined): string {
   switch (state) {
     case 'thinking':
       return 'Typing…';
@@ -21,7 +26,24 @@ function AgentStatusText(state: string | undefined): string {
   }
 }
 
-export function ChatView() {
+/** Try to parse a LiveKit message as a Vaani CTA. Returns null if not a CTA. */
+function parseCtaMessage(content: string): { message: string; buttons: string[] } | null {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.vaani_cta === true && Array.isArray(parsed.buttons)) {
+      return { message: parsed.message ?? '', buttons: parsed.buttons as string[] };
+    }
+  } catch {
+    // not JSON — plain text
+  }
+  return null;
+}
+
+interface ChatViewProps {
+  farmer: FarmerProfile | null;
+}
+
+export function ChatView({ farmer }: ChatViewProps) {
   const session = useSessionContext();
   const { messages: livekitMessages } = useSessionMessages(session);
   const { send } = useChat();
@@ -29,15 +51,28 @@ export function ChatView() {
   const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Convert LiveKit messages to UIMessage format
+  // Convert LiveKit messages to UIMessage format, detecting CTA JSON
   const allMessages = useMemo<UIMessage[]>(() => {
-    const lk: UIMessage[] = livekitMessages.map((m) => ({
-      id: m.id,
-      type: 'text',
-      content: m.message,
-      isUser: m.from?.isLocal ?? false,
-      timestamp: m.timestamp,
-    }));
+    const lk: UIMessage[] = livekitMessages.map((m) => {
+      const cta = parseCtaMessage(m.message);
+      if (cta) {
+        return {
+          id: m.id,
+          type: 'cta',
+          message: cta.message,
+          buttons: cta.buttons,
+          isUser: false,
+          timestamp: m.timestamp,
+        } as UIMessage;
+      }
+      return {
+        id: m.id,
+        type: 'text',
+        content: m.message,
+        isUser: m.from?.isLocal ?? false,
+        timestamp: m.timestamp,
+      };
+    });
     return [...lk, ...localMessages].sort((a, b) => a.timestamp - b.timestamp);
   }, [livekitMessages, localMessages]);
 
@@ -60,61 +95,77 @@ export function ChatView() {
     setLocalMessages((prev) => [...prev, newMsg]);
   };
 
+  // CTA button click → send button label as a text message
+  const handleCtaClick = useCallback(
+    async (button: string) => {
+      // Add locally so user sees it immediately
+      setLocalMessages((prev) => [
+        ...prev,
+        {
+          id: nanoid(),
+          type: 'text',
+          content: button,
+          isUser: true,
+          timestamp: Date.now(),
+        },
+      ]);
+      await send(button);
+    },
+    [send]
+  );
+
+  const farmerName = farmer?.name ?? 'Farmer';
+  const initials = farmerName
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#128C7E] dark:bg-[#0B141A]">
       {/* Chat panel — full width on mobile, centered on desktop */}
       <div className="flex w-full flex-col md:max-w-2xl md:shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 bg-[#075E54] px-4 py-3 text-white dark:bg-[#1F2C34]">
-          {/* Agent avatar */}
+          {/* Vaani avatar */}
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#25D366] text-sm font-bold text-white">
-            AI
+            V
           </div>
 
           {/* Agent info */}
           <div className="min-w-0 flex-1">
-            <h1 className="text-sm font-semibold">AI Assistant</h1>
-            <p className="text-xs text-green-200/80">{AgentStatusText(agentState)}</p>
+            <h1 className="text-sm font-semibold">
+              Vaani
+              {farmer?.name ? (
+                <span className="ml-2 font-normal text-green-200/70">• {farmer.name}</span>
+              ) : null}
+            </h1>
+            <p className="text-xs text-green-200/80">{agentStatusText(agentState)}</p>
           </div>
 
-          {/* Placeholder: Video call */}
-          <button
-            className="rounded-full p-2 transition-colors hover:bg-white/10"
-            aria-label="Video call (coming soon)"
-            title="Video call — coming soon"
-          >
-            <VideoCamera size={20} />
-          </button>
-
-          {/* Placeholder: Voice call */}
-          <button
-            className="rounded-full p-2 transition-colors hover:bg-white/10"
-            aria-label="Voice call (coming soon)"
-            title="Voice call — coming soon"
-          >
-            <Phone size={20} />
-          </button>
-
-          {/* More options */}
-          <button
-            className="rounded-full p-2 transition-colors hover:bg-white/10"
-            aria-label="More options"
-          >
-            <DotsThreeVertical size={20} weight="bold" />
-          </button>
+          {/* Farmer initials chip */}
+          {farmer && (
+            <div
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-semibold text-white"
+              title={farmerName}
+            >
+              {initials}
+            </div>
+          )}
         </div>
 
         {/* Message list */}
-        <div className="flex-1 overflow-y-auto bg-[#ECE5DD] py-3 dark:bg-[#0B141A] [scrollbar-width:thin]">
+        <div className="flex-1 overflow-y-auto bg-[#ECE5DD] py-3 [scrollbar-width:thin] dark:bg-[#0B141A]">
           {allMessages.length === 0 && (
             <div className="flex h-full items-center justify-center">
               <p className="rounded-lg bg-white/60 px-4 py-2 text-xs text-gray-500 dark:bg-black/20 dark:text-gray-400">
-                Agent is listening — say or type something
+                Vaani is listening — say or type something
               </p>
             </div>
           )}
           {allMessages.map((msg) => (
-            <ChatMessageBubble key={msg.id} message={msg} />
+            <ChatMessageBubble key={msg.id} message={msg} onCtaClick={handleCtaClick} />
           ))}
           <div ref={messagesEndRef} />
         </div>

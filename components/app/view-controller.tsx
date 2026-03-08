@@ -1,46 +1,31 @@
 'use client';
 
-import { AnimatePresence, motion } from 'motion/react';
+import { useEffect } from 'react';
 import { useSessionContext } from '@livekit/components-react';
-import type { AppConfig } from '@/app-config';
 import { ChatView } from '@/components/app/chat-view';
-import { WelcomeView } from '@/components/app/welcome-view';
-
-const MotionWelcomeView = motion.create(WelcomeView);
-const MotionChatView = motion.create(ChatView);
-
-const VIEW_MOTION_PROPS = {
-  variants: {
-    visible: { opacity: 1 },
-    hidden: { opacity: 0 },
-  },
-  initial: 'hidden',
-  animate: 'visible',
-  exit: 'hidden',
-  transition: {
-    duration: 0.4,
-    ease: 'linear',
-  },
-};
+import type { FarmerProfile } from '@/lib/vaani-api';
 
 interface ViewControllerProps {
-  appConfig: AppConfig;
+  farmer: FarmerProfile | null;
 }
 
-export function ViewController({ appConfig }: ViewControllerProps) {
+export function ViewController({ farmer }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
 
-  return (
-    <AnimatePresence mode="wait">
-      {!isConnected && (
-        <MotionWelcomeView
-          key="welcome"
-          {...VIEW_MOTION_PROPS}
-          startButtonText={appConfig.startButtonText}
-          onStartCall={start}
-        />
-      )}
-      {isConnected && <MotionChatView key="chat" {...VIEW_MOTION_PROPS} />}
-    </AnimatePresence>
-  );
+  // Auto-connect as soon as the session is ready
+  useEffect(() => {
+    start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!isConnected) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-[#ECE5DD] dark:bg-[#0B141A]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#25D366] border-t-transparent" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">Connecting to Vaani…</p>
+      </div>
+    );
+  }
+
+  return <ChatView farmer={farmer} />;
 }

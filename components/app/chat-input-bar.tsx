@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Camera, Image, Microphone, Paperclip, PaperPlaneTilt } from '@phosphor-icons/react';
+import { Camera, Image, Microphone, PaperPlaneTilt, Paperclip } from '@phosphor-icons/react';
 import { FilePdf } from '@phosphor-icons/react';
 import { cn } from '@/lib/shadcn/utils';
 import type { AttachmentInput } from './chat-message-bubble';
@@ -150,7 +150,7 @@ export function ChatInputBar({ onSendText, onAttachment }: ChatInputBarProps) {
           onKeyDown={handleKeyDown}
           placeholder="Type a message"
           rows={1}
-          className="max-h-28 flex-1 resize-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none [scrollbar-width:thin] field-sizing-content dark:text-gray-100 dark:placeholder:text-gray-500"
+          className="field-sizing-content max-h-28 flex-1 resize-none bg-transparent text-sm text-gray-900 [scrollbar-width:thin] placeholder:text-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder:text-gray-500"
         />
       </div>
 

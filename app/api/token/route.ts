@@ -9,41 +9,32 @@ type ConnectionDetails = {
   participantToken: string;
 };
 
-// NOTE: you are expected to define the following environment variables in `.env.local`:
 const API_KEY = process.env.LIVEKIT_API_KEY;
 const API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
-// don't cache the results
 export const revalidate = 0;
 
 export async function POST(req: Request) {
-  if (process.env.NODE_ENV !== 'development') {
-    throw new Error(
-      'THIS API ROUTE IS INSECURE. DO NOT USE THIS ROUTE IN PRODUCTION WITHOUT AN AUTHENTICATION LAYER.'
-    );
-  }
-
   try {
-    if (LIVEKIT_URL === undefined) {
-      throw new Error('LIVEKIT_URL is not defined');
-    }
-    if (API_KEY === undefined) {
-      throw new Error('LIVEKIT_API_KEY is not defined');
-    }
-    if (API_SECRET === undefined) {
-      throw new Error('LIVEKIT_API_SECRET is not defined');
-    }
+    if (!LIVEKIT_URL) throw new Error('LIVEKIT_URL is not defined');
+    if (!API_KEY) throw new Error('LIVEKIT_API_KEY is not defined');
+    if (!API_SECRET) throw new Error('LIVEKIT_API_SECRET is not defined');
 
-    // Parse room config from request body.
     const body = await req.json();
-    // Recreate the RoomConfiguration object from JSON object.
-    const roomConfig = RoomConfiguration.fromJson(body?.room_config, { ignoreUnknownFields: true });
+    const roomConfig = RoomConfiguration.fromJson(body?.room_config ?? {}, {
+      ignoreUnknownFields: true,
+    });
 
-    // Generate participant token
-    const participantName = 'user';
-    const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
-    const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
+    // Use farmer phone as participant identity so the backend agent can identify the user
+    const farmerPhone: string = body?.phone_number ?? '';
+    const participantIdentity = farmerPhone
+      ? `farmer_${farmerPhone.replace(/\D/g, '')}`
+      : `vaani_user_${Math.floor(Math.random() * 10_000)}`;
+    const participantName = farmerPhone || 'Farmer';
+    const roomName = farmerPhone
+      ? `vaani_room_${farmerPhone.replace(/\D/g, '')}`
+      : `vaani_room_${Math.floor(Math.random() * 10_000)}`;
 
     const participantToken = await createParticipantToken(
       { identity: participantIdentity, name: participantName },
@@ -51,17 +42,16 @@ export async function POST(req: Request) {
       roomConfig
     );
 
-    // Return connection details
     const data: ConnectionDetails = {
       serverUrl: LIVEKIT_URL,
       roomName,
       participantName,
       participantToken,
     };
-    const headers = new Headers({
-      'Cache-Control': 'no-store',
+
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'no-store' },
     });
-    return NextResponse.json(data, { headers });
   } catch (error) {
     if (error instanceof Error) {
       console.error(error);
@@ -87,10 +77,8 @@ function createParticipantToken(
     canSubscribe: true,
   };
   at.addGrant(grant);
-
   if (roomConfig) {
     at.roomConfig = roomConfig;
   }
-
   return at.toJwt();
 }

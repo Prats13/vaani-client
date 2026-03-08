@@ -22,7 +22,15 @@ export type UIMessage =
       isUser: boolean;
       timestamp: number;
     }
-  | { id: string; type: 'voice-note'; duration: number; isUser: boolean; timestamp: number };
+  | { id: string; type: 'voice-note'; duration: number; isUser: boolean; timestamp: number }
+  | {
+      id: string;
+      type: 'cta';
+      message: string;
+      buttons: string[];
+      isUser: false;
+      timestamp: number;
+    };
 
 /** Attachment-only payload (no id / isUser / timestamp) — used by ChatInputBar */
 export type AttachmentInput =
@@ -35,7 +43,12 @@ const WAVEFORM_HEIGHTS = [
   40, 70, 55, 80, 35, 65, 90, 45, 75, 30, 85, 50, 70, 40, 95, 60, 75, 45, 55, 80, 35, 65, 50, 70,
 ];
 
-export function ChatMessageBubble({ message }: { message: UIMessage }) {
+interface ChatMessageBubbleProps {
+  message: UIMessage;
+  onCtaClick?: (button: string) => void;
+}
+
+export function ChatMessageBubble({ message, onCtaClick }: ChatMessageBubbleProps) {
   const { isUser } = message;
   const timeStr = new Date(message.timestamp).toLocaleTimeString([], {
     hour: '2-digit',
@@ -54,9 +67,31 @@ export function ChatMessageBubble({ message }: { message: UIMessage }) {
       >
         {/* Text */}
         {message.type === 'text' && (
-          <p className="break-words text-sm leading-relaxed whitespace-pre-wrap text-gray-900 dark:text-gray-100">
+          <p className="text-sm leading-relaxed break-words whitespace-pre-wrap text-gray-900 dark:text-gray-100">
             {message.content}
           </p>
+        )}
+
+        {/* CTA */}
+        {message.type === 'cta' && (
+          <div>
+            {message.message && (
+              <p className="mb-3 text-sm leading-relaxed break-words text-gray-900 dark:text-gray-100">
+                {message.message}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {message.buttons.map((btn) => (
+                <button
+                  key={btn}
+                  onClick={() => onCtaClick?.(btn)}
+                  className="rounded-full border border-[#25D366] px-3 py-1.5 text-xs font-semibold text-[#25D366] transition-colors hover:bg-[#25D366] hover:text-white active:scale-95"
+                >
+                  {btn}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Image */}
@@ -105,7 +140,7 @@ export function ChatMessageBubble({ message }: { message: UIMessage }) {
                 />
               ))}
             </div>
-            <span className="flex-shrink-0 tabular-nums text-xs text-gray-500 dark:text-gray-400">
+            <span className="flex-shrink-0 text-xs text-gray-500 tabular-nums dark:text-gray-400">
               {Math.floor(message.duration / 60)}:{String(message.duration % 60).padStart(2, '0')}
             </span>
           </div>
@@ -113,10 +148,7 @@ export function ChatMessageBubble({ message }: { message: UIMessage }) {
 
         {/* Timestamp */}
         <div
-          className={cn(
-            'mt-0.5 flex items-center gap-1',
-            isUser ? 'justify-end' : 'justify-start'
-          )}
+          className={cn('mt-0.5 flex items-center gap-1', isUser ? 'justify-end' : 'justify-start')}
         >
           <span className="text-[10px] text-gray-400 dark:text-gray-500">{timeStr}</span>
         </div>

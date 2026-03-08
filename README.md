@@ -1,193 +1,286 @@
-# Agent Starter for React
+# Vaani Client — Frontend Integration Guide
 
-This is a starter template for [LiveKit Agents](https://docs.livekit.io/agents) that provides a simple voice interface using [Agents UI](https://livekit.io/ui) components and [LiveKit JavaScript SDK](https://github.com/livekit/client-sdk-js). It supports [voice](https://docs.livekit.io/agents/start/voice-ai), [transcriptions](https://docs.livekit.io/agents/build/text/), and [virtual avatars](https://docs.livekit.io/agents/integrations/avatar).
+> **For backend team / backend Claude:** This document explains exactly how the frontend works, what it expects from the backend, and the contracts you need to implement.
 
-Also available for:
-[Android](https://github.com/livekit-examples/agent-starter-android) • [Flutter](https://github.com/livekit-examples/agent-starter-flutter) • [Swift](https://github.com/livekit-examples/agent-starter-swift) • [React Native](https://github.com/livekit-examples/agent-starter-react-native)
+---
 
-<picture>
-  <source srcset="./.github/assets/readme-hero-dark.webp" media="(prefers-color-scheme: dark)">
-  <source srcset="./.github/assets/readme-hero-light.webp" media="(prefers-color-scheme: light)">
-  <img src="./.github/assets/readme-hero-light.webp" alt="App screenshot">
-</picture>
+## What this is
 
-### Features:
+A Next.js 15 web app that serves as the browser-based UI for the Vaani farmer advisory system.
 
-- Real-time voice interaction with LiveKit Agents
-- Camera video streaming support
-- Screen sharing capabilities
-- Multiple audio visualizer styles (`bar`, `grid`, `radial`, `wave`, `aura`)
-- Virtual avatar integration
-- Light/dark theme switching with system preference detection
-- Customizable branding, colors, and UI text via configuration
+Built on top of LiveKit's agent-starter-react template. Farmers interact through a **WhatsApp-style chat interface** connected to a LiveKit room.
 
-This template is built with Next.js and is free for you to use or modify as you see fit.
+---
 
-### Project structure
-
-This starter uses the [Agents UI](https://livekit.io/ui) components for core UI elements like media controls, audio visualizers, chat transcripts, and providing session data. Shadcn installs components into `components/` folder so you can customize them like any other local component.
+## App Flow
 
 ```
-agent-starter-react/
-├── app/
-│   ├── api/
-├── components/
-│   ├── agents-ui/     - Agents UI components
-│   ├── ai-elements/   - AI Elements components
-│   ├── app/           - App-specific components
-│   ├── ui/            - Primitive shadcn/ui components
-├── fonts/
-├── hooks/
-├── lib/
-├── public/
-└── package.json
+User opens app
+    ↓
+Phone number entry (10-digit Indian mobile)
+    ↓
+GET /api/v1/farmer/{phone}  →  Backend
+    ↓
+Not registered?             Registered?
+    ↓                           ↓
+POST /api/v1/sip/call/outbound  Connect to LiveKit room
+(farmer_onboarding)             (farmer phone = participant identity)
+    ↓                           ↓
+"Vaani will call you"       WhatsApp chat UI
+                                ↓
+                        User speaks/types/sends images
+                                ↓
+                        Agent responds via LiveKit
 ```
 
-Business logic lives within the `components/app` folder. It's here where the application's state and behavior is managed and the various Shadcn UI components are composed together.
+---
 
-| File                  | Description                                                                                                                                           |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `session-view.tsx`    | Initializes the application, and LiveKit session. Renders the view controller and session UI including chat transcript, media tiles, and control bar. |
-| `view-controller.tsx` | Manages the transitions between the welcome and session views based on the LiveKit session state.                                                     |
-| `welcome-view.tsx`    | Renders the welcome UI when the LiveKit session is not connected.                                                                                     |
-| `chat-transcript.tsx` | Manages the chat transcript transitions.                                                                                                              |
-| `tile-layout.tsx`     | Manages the layout and transition of media tiles in various application states.                                                                       |
+## Backend API Contracts
 
-### Component usage
-
-Most Agents UI components require access to a LiveKit session object for access to values like agent state or audio tracks. A Session object can be created from a [TokenSource](/reference/client-sdk-js/variables/TokenSource.html), and provided by wrapping the component in an [AgentSessionProvider](/reference/components/shadcn/component/agent-session-provider).
-
-See [`components/app/app.tsx`](./components/app/app.tsx) for an example of how this is done in this app.
-
-### Customizing components
-
-Agents UI components, like most Shadcn compopnents, take as many primitive attributes as possible. For example, the [AgentControlBar](/reference/components/shadcn/component/agent-control-bar/page.mdoc) component extends `HTMLAttributes<HTMLDivElement>`, so you can pass any props that a div supports. This makes it easy to extend the component with your own styles or functionality.
-
-You can edit any Agents UI component's source code in the `components/agents-ui` directory. For style changes, we recommend passing in tailwind classes to override the default styles. Take a look at the source code to get a sense of how to override a component's default styles.
-
-### Updating components
-
-To update the Agents UI components to the latest publication, run the following command:
-
-```bash
-pnpm shadcn:install
+### Base URL
+```
+http://13.233.165.50:8010
 ```
 
-> [!NOTE]
-> The CLI will ask before overwriting any modified files so you can avoid losing any customizations you might have made.
-
-### Installing components
-
-```bash
-pnpm dlx shadcn@latest add @agents-ui/{component-name-a} @agents-ui/{component-name-b}
+### Auth header (required on every request)
+```
+X-API-Key: vaani_ai_for_bharat_2026
 ```
 
-## Getting started
+---
 
-> [!TIP]
-> If you'd like to try this application without modification, you can deploy an instance in just a few clicks with [LiveKit Cloud Sandbox](https://cloud.livekit.io/projects/p_/sandbox/templates/agent-starter-react).
+### 1. Farmer Lookup — `GET /api/v1/farmer/{phone_number}`
 
-[![Open on LiveKit](https://img.shields.io/badge/Open%20on%20LiveKit%20Cloud-002CF2?style=for-the-badge&logo=external-link)](https://cloud.livekit.io/projects/p_/sandbox/templates/agent-starter-react)
+Called on every login. Phone is in E.164 format (`+91XXXXXXXXXX`).
 
-Run the following command to automatically clone this template.
-
-```bash
-lk app create --template agent-starter-react
+**Response — farmer found and complete:**
+```json
+{
+  "farmer_id": "uuid",
+  "phone_number": "+919876543210",
+  "name": "Ramesh Kumar",
+  "state": "Uttar Pradesh",
+  "district": "Lucknow",
+  "village": "Mohanlalganj",
+  "pincode": "226301",
+  "land_area_acres": 3.5,
+  "irrigation_type": "rainfed",
+  "preferred_language": "hindi",
+  "is_profile_complete": true,
+  "primary_crops": ["wheat", "paddy"]
+}
 ```
 
-Then run the app with:
+**Response — not found:**
+```json
+{ "detail": "Farmer not found" }
+```
+HTTP 404.
+
+**Frontend behaviour:**
+- `is_profile_complete: true` → connect to LiveKit chat
+- `is_profile_complete: false` OR 404 → trigger onboarding PSTN call
+
+---
+
+### 2. Outbound Call — `POST /api/v1/sip/call/outbound`
+
+Triggered for both onboarding and advisory flows. Fire-and-forget — no polling needed.
+
+**Onboarding call (new farmer):**
+```json
+{
+  "agent_params": {
+    "farmer_id": "new_farmer",
+    "farmer_phone": "+91XXXXXXXXXX"
+  },
+  "agent_config": {
+    "agent_type": "farmer_onboarding",
+    "stt_config": "sarvam-saarika-2.5",
+    "llm_config": "gemini-2.5-flash",
+    "tts_config": "sarvam-bulbul"
+  },
+  "call_config": {
+    "call_direction": "outbound",
+    "call_type": "pstn",
+    "call_provider": "exotel",
+    "call_from": "+918048332926",
+    "call_to": "+91XXXXXXXXXX"
+  }
+}
+```
+
+**Advisory call (registered farmer):**
+Same structure but:
+- `farmer_id`: the farmer's UUID from the DB
+- `agent_type`: `"farmer_advisory"`
+
+**Expected response:**
+```json
+{
+  "status": "initiated",
+  "call_id": "...",
+  "message": "Outbound call initiated"
+}
+```
+
+---
+
+## LiveKit Session — Participant Identity
+
+When a registered farmer connects via browser, the frontend generates a LiveKit token using:
+
+```
+participantIdentity = "farmer_{digits}"    e.g. "farmer_919876543210"
+participantName     = "+91XXXXXXXXXX"      (E.164 phone)
+roomName            = "vaani_room_{digits}"
+```
+
+**The backend agent can read `participantIdentity` or `participantName` from the LiveKit room to identify which farmer is in the session.** No need for any separate session parameter — the phone is baked into the identity.
+
+Token is generated at `POST /api/token` on the Next.js server (uses `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`).
+
+---
+
+## CTA Message Protocol — Critical for Agent
+
+The frontend supports a special **CTA (Call-To-Action) message type** rendered as tappable button pills inside the agent's chat bubble.
+
+To send CTAs, the backend agent must send a **chat message** (via LiveKit data channel) in this exact JSON format:
+
+```json
+{
+  "vaani_cta": true,
+  "message": "How can I help you today?",
+  "buttons": ["Newsletter", "Know Your Crop"]
+}
+```
+
+**Rules:**
+- `vaani_cta: true` — required flag, triggers CTA rendering
+- `message` — helper text shown above the buttons (can be empty string)
+- `buttons` — array of strings, each becomes a tappable pill button
+
+When the farmer taps a button, the frontend sends that button's label as a plain text chat message back to the agent. Example: tapping `"Know Your Crop"` → agent receives `"Know Your Crop"` as a user text message.
+
+**If the message is not valid JSON with `vaani_cta: true`, it is rendered as plain text.**
+
+### Example CTA flows to implement
+
+**On session start (registered farmer):**
+```json
+{
+  "vaani_cta": true,
+  "message": "Namaste Ramesh ji! How can I help you today?",
+  "buttons": ["Newsletter", "Know Your Crop"]
+}
+```
+
+**After farmer clicks "Know Your Crop":**
+```json
+{
+  "vaani_cta": true,
+  "message": "How can I assist you with your crop today?",
+  "buttons": ["Ask Me Anything", "Monday Info", "Back to Home"]
+}
+```
+
+**After farmer clicks "Newsletter":**
+```json
+{
+  "vaani_cta": true,
+  "message": "Choose the updates you want to receive.",
+  "buttons": ["Local News", "National News", "Government Schemes", "Back to Home"]
+}
+```
+
+**"Back to Home" always returns to the main menu** — send the Home CTA again.
+
+---
+
+## Input Types the Frontend Supports
+
+The farmer can send:
+
+| Input | How it arrives at agent |
+| --- | --- |
+| **Text** | Plain string via LiveKit chat |
+| **Voice** | Live audio track via LiveKit (agent hears directly) |
+| **Image** | Rendered locally in chat, currently no upload pipeline to backend — to be wired |
+| **PDF** | Same as image — local only for now |
+| **CTA button tap** | Plain text string via LiveKit chat |
+
+---
+
+## Environment Variables Required
+
+Create `.env.local` from `.env.example`:
+
+```env
+# LiveKit credentials
+LIVEKIT_API_KEY=your_livekit_api_key
+LIVEKIT_API_SECRET=your_livekit_api_secret
+LIVEKIT_URL=wss://your-project.livekit.cloud
+
+# Agent dispatch (leave blank for automatic dispatch)
+AGENT_NAME=
+
+# Vaani backend
+NEXT_PUBLIC_VAANI_API_BASE_URL=http://13.233.165.50:8010
+NEXT_PUBLIC_VAANI_API_KEY=vaani_ai_for_bharat_2026
+NEXT_PUBLIC_EXOTEL_FROM_NUMBER=+918048332926
+```
+
+---
+
+## Running Locally
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-And open http://localhost:3000 in your browser.
+Opens at `http://localhost:3000`.
 
-You'll also need an agent to speak with. Try our starter agent for [Python](https://github.com/livekit-examples/agent-starter-python), [Node.js](https://github.com/livekit-examples/agent-starter-node), or [create your own from scratch](https://docs.livekit.io/agents/start/voice-ai/).
+---
 
-## Configuration
+## Project Structure (relevant files)
 
-This starter is designed to be flexible so you can adapt it to your specific agent use case. You can easily configure it to work with different types of inputs and outputs:
-
-#### Example: App configuration (`app-config.ts`)
-
-```ts
-export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'LiveKit',
-  pageTitle: 'LiveKit Voice Agent',
-  pageDescription: 'A voice agent built with LiveKit',
-
-  supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
-  isPreConnectBufferEnabled: true,
-
-  logo: '/lk-logo.svg',
-  accent: '#002cf2',
-  logoDark: '/lk-logo-dark.svg',
-  accentDark: '#1fd5f9',
-  startButtonText: 'Start call',
-
-  // optional: audio visualization configuration
-  // audioVisualizerColor: '#002cf2',
-  // audioVisualizerColorDark: '#1fd5f9',
-  // audioVisualizerType: 'bar',
-  // audioVisualizerBarCount: 5,
-  // audioVisualizerType: 'radial',
-  // audioVisualizerRadialBarCount: 24,
-  // audioVisualizerRadialRadius: 100,
-  // audioVisualizerType: 'grid',
-  // audioVisualizerGridRowCount: 25,
-  // audioVisualizerGridColumnCount: 25,
-  // audioVisualizerType: 'wave',
-  // audioVisualizerWaveLineWidth: 3,
-  // audioVisualizerType: 'aura',
-  // audioVisualizerAuraColorShift: 0.3,
-
-  // agent dispatch configuration
-  agentName: undefined,
-
-  // LiveKit Cloud Sandbox configuration
-  sandboxId: undefined,
-};
+```
+vaani-client/
+├── app/
+│   ├── api/token/route.ts          # LiveKit token endpoint — accepts phone_number in body
+│   ├── layout.tsx                  # Root layout — Vaani branding
+│   └── page.tsx                    # Entry point
+├── components/app/
+│   ├── app.tsx                     # Phase state machine: entry → onboarding | chat
+│   ├── phone-entry-view.tsx        # Phone number input, farmer lookup
+│   ├── onboarding-pending-view.tsx # Triggers PSTN call, "Vaani will call you" screen
+│   ├── view-controller.tsx         # Auto-connects to LiveKit, spinner while connecting
+│   ├── chat-view.tsx               # WhatsApp UI — CTA JSON parsing, farmer name in header
+│   ├── chat-message-bubble.tsx     # Renders: text | cta | image | pdf | voice-note
+│   └── chat-input-bar.tsx          # Text input, mic, attach (image/pdf/camera)
+├── lib/
+│   └── vaani-api.ts                # getFarmer(), initiateOutboundCall(), toE164()
+└── misc/                           # Product docs (conversation flow, agent framework, etc.)
 ```
 
-You can update these values in [`app-config.ts`](./app-config.ts) to customize branding, features, and UI text for your deployment.
+---
 
-#### Audio visualizer presets
+## What the Backend Needs to Ensure
 
-Set `audioVisualizerType` in [`app-config.ts`](./app-config.ts) to switch visualizer styles:
+1. **`GET /api/v1/farmer/{phone}`** — farmer lookup by E.164 phone (returns profile or 404)
+2. **`POST /api/v1/sip/call/outbound`** — outbound PSTN call endpoint (already built)
+3. **CORS** — `allow_origins: ["*"]` so the browser can hit the API directly
+4. **LiveKit agent reads participant identity** to know which farmer is in the room (`farmer_{digits}`)
+5. **Agent sends CTAs as JSON chat messages** matching the `vaani_cta` protocol above
+6. **Agent handles plain text replies** from CTA button taps (e.g. `"Know Your Crop"`)
 
-- `bar` (default): vertical bars with optional `audioVisualizerBarCount`
-- `grid`: dot grid with `audioVisualizerGridRowCount` and `audioVisualizerGridColumnCount`
-- `radial`: circular bars with `audioVisualizerRadialBarCount` and `audioVisualizerRadialRadius`
-- `wave`: oscilloscope-style wave with `audioVisualizerWaveLineWidth`
-- `aura`: shader-based aura with `audioVisualizerAuraColorShift`
+---
 
-Use `audioVisualizerColor` to set a shared accent color across all visualizer modes.
+## Notes
 
-> [!NOTE]
-> The `sandboxId` is for the LiveKit Cloud Sandbox environment.
-> It is not used for local development.
-
-#### Environment Variables
-
-You'll also need to configure your LiveKit credentials in `.env.local` (copy `.env.example` if you don't have one):
-
-```env
-LIVEKIT_API_KEY=your_livekit_api_key
-LIVEKIT_API_SECRET=your_livekit_api_secret
-LIVEKIT_URL=https://your-livekit-server-url
-
-# Agent dispatch (https://docs.livekit.io/agents/server/agent-dispatch)
-# Leave AGENT_NAME blank to enable automatic dispatch
-# Provide an agent name to enable explicit dispatch
-AGENT_NAME=
-```
-
-These are required for the voice agent functionality to work with your LiveKit project.
-
-## Contributing
-
-This template is open source and we welcome contributions! Please open a PR or issue through GitHub, and don't forget to join us in the [LiveKit Community Slack](https://livekit.io/join-slack)!
+- Phone numbers are always E.164 (`+91XXXXXXXXXX`). Frontend converts 10-digit input automatically.
+- The outbound call API is fire-and-forget. No WebSocket or polling from frontend.
+- The web chat (LiveKit) and the PSTN call (Exotel) are two separate channels. Web chat is for registered farmers; PSTN is for onboarding only.
+- Image and PDF uploads are rendered locally in the chat UI — the actual file upload pipeline to the backend needs to be wired separately when ready.
