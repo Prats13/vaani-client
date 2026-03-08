@@ -44,8 +44,12 @@ function VaaniSession({
     if (typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string') {
       return getSandboxTokenSource(appConfig);
     }
-    // Call FastAPI token endpoint — generates token + dispatches the agent
-    return TokenSource.custom(() => getLiveKitToken(farmerPhone));
+    // Cache the promise so multiple calls return the same token without hitting the backend twice
+    let cached: ReturnType<typeof getLiveKitToken> | null = null;
+    return TokenSource.custom(() => {
+      if (!cached) cached = getLiveKitToken(farmerPhone);
+      return cached;
+    });
   }, [appConfig, farmerPhone]);
 
   const session = useSession(tokenSource);
