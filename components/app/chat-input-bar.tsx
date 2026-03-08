@@ -1,8 +1,9 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Camera, Image, Microphone, PaperPlaneTilt, Paperclip } from '@phosphor-icons/react';
+import { Camera, Image, Microphone, PaperPlaneTilt, Paperclip, StopCircle } from '@phosphor-icons/react';
 import { FilePdf } from '@phosphor-icons/react';
+import { useLocalParticipant } from '@livekit/components-react';
 import { cn } from '@/lib/shadcn/utils';
 import type { AttachmentInput } from './chat-message-bubble';
 
@@ -14,8 +15,10 @@ interface ChatInputBarProps {
 export function ChatInputBar({ onSendText, onAttachment }: ChatInputBarProps) {
   const [text, setText] = useState('');
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  const { localParticipant } = useLocalParticipant();
+  const isMicOn = localParticipant?.isMicrophoneEnabled ?? false;
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -59,12 +62,8 @@ export function ChatInputBar({ onSendText, onAttachment }: ChatInputBarProps) {
     setAttachMenuOpen(false);
   };
 
-  // Voice note — placeholder: hold to "record", release adds a dummy 5s note
-  const handleVoiceNoteStart = () => setIsRecording(true);
-  const handleVoiceNoteEnd = () => {
-    if (!isRecording) return;
-    setIsRecording(false);
-    onAttachment({ type: 'voice-note', duration: 5 });
+  const toggleMic = () => {
+    localParticipant?.setMicrophoneEnabled(!isMicOn);
   };
 
   return (
@@ -166,17 +165,15 @@ export function ChatInputBar({ onSendText, onAttachment }: ChatInputBarProps) {
         </button>
       ) : (
         <button
-          onMouseDown={handleVoiceNoteStart}
-          onMouseUp={handleVoiceNoteEnd}
-          onTouchStart={handleVoiceNoteStart}
-          onTouchEnd={handleVoiceNoteEnd}
+          onClick={toggleMic}
           className={cn(
             'flex-shrink-0 rounded-full p-2.5 text-white transition-colors',
-            isRecording ? 'bg-red-500' : 'bg-[#25D366] hover:bg-[#1ebe5d]'
+            isMicOn ? 'animate-pulse bg-red-500 hover:bg-red-600' : 'bg-[#25D366] hover:bg-[#1ebe5d]'
           )}
-          aria-label={isRecording ? 'Recording…' : 'Hold to record voice note'}
+          aria-label={isMicOn ? 'Stop speaking' : 'Tap to speak'}
+          title={isMicOn ? 'Tap to stop speaking' : 'Tap to speak'}
         >
-          <Microphone size={20} weight="fill" />
+          {isMicOn ? <StopCircle size={20} weight="fill" /> : <Microphone size={20} weight="fill" />}
         </button>
       )}
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSessionContext } from '@livekit/components-react';
+import { useRoomContext, useSessionContext } from '@livekit/components-react';
 import { ChatView } from '@/components/app/chat-view';
 import type { FarmerProfile } from '@/lib/vaani-api';
 
@@ -11,12 +11,20 @@ interface ViewControllerProps {
 
 export function ViewController({ farmer }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
+  const room = useRoomContext();
 
-  // Auto-connect as soon as the session is ready
+  // Auto-connect on mount
   useEffect(() => {
     start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Mute mic by default — user controls it explicitly via the mic button
+  useEffect(() => {
+    if (isConnected && room?.localParticipant) {
+      room.localParticipant.setMicrophoneEnabled(false);
+    }
+  }, [isConnected, room]);
 
   if (!isConnected) {
     return (
