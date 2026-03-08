@@ -24,6 +24,12 @@ interface AppProps {
   appConfig: AppConfig;
 }
 
+function SessionSetup() {
+  useDebugMode({ enabled: IN_DEVELOPMENT });
+  useAgentErrors();
+  return null;
+}
+
 // Inner component — only mounts once we have a verified farmer + phone
 function VaaniSession({
   appConfig,
@@ -34,8 +40,6 @@ function VaaniSession({
   farmer: FarmerProfile | null;
   farmerPhone: string;
 }) {
-  useDebugMode({ enabled: IN_DEVELOPMENT });
-  useAgentErrors();
 
   const tokenSource = useMemo(() => {
     if (typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string') {
@@ -62,6 +66,7 @@ function VaaniSession({
 
   return (
     <AgentSessionProvider session={session}>
+      <SessionSetup />
       <main className="grid h-svh grid-cols-1 place-content-center">
         <ViewController farmer={farmer} />
       </main>
