@@ -14,7 +14,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useDebugMode } from '@/hooks/useDebug';
 import { getSandboxTokenSource } from '@/lib/utils';
-import { getLiveKitToken, type FarmerProfile } from '@/lib/vaani-api';
+import { type FarmerProfile, getLiveKitToken } from '@/lib/vaani-api';
 
 const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 
