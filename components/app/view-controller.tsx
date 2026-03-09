@@ -13,18 +13,11 @@ export function ViewController({ farmer }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
   const room = useRoomContext();
 
-  // Auto-connect on mount
+  // Auto-connect on mount with microphone disabled initially
   useEffect(() => {
-    start();
+    start({ tracks: { microphone: { enabled: false } } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Mute mic by default — user controls it explicitly via the mic button
-  useEffect(() => {
-    if (isConnected && room?.localParticipant) {
-      room.localParticipant.setMicrophoneEnabled(false);
-    }
-  }, [isConnected, room]);
 
   if (!isConnected) {
     return (

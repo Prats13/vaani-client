@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
 import {
   useAgent,
-  useChat,
+  useRoomContext,
   useSessionContext,
   useSessionMessages,
 } from '@livekit/components-react';
@@ -46,7 +46,10 @@ interface ChatViewProps {
 export function ChatView({ farmer }: ChatViewProps) {
   const session = useSessionContext();
   const { messages: livekitMessages } = useSessionMessages(session);
-  const { send } = useChat();
+  // Use room.localParticipant.sendText() — the backend's data_received handler
+  // expects raw UTF-8 text, which sendText() produces. useChat().send() wraps the
+  // message in a different encoding the backend won't decode correctly.
+  const room = useRoomContext();
   const { state: agentState } = useAgent();
   const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -82,7 +85,9 @@ export function ChatView({ farmer }: ChatViewProps) {
   }, [allMessages]);
 
   const handleSendText = async (text: string) => {
-    await send(text);
+    // sendText sends a raw UTF-8 string that the backend data_received handler reads directly.
+    // Do NOT use publishData() (wrong encoding) or useChat().send() (wraps in chat protocol).
+    await room.localParticipant.sendText(text);
   };
 
   const handleAttachment = (msg: AttachmentInput) => {
@@ -95,10 +100,10 @@ export function ChatView({ farmer }: ChatViewProps) {
     setLocalMessages((prev) => [...prev, newMsg]);
   };
 
-  // CTA button click → send button label as a text message
+  // CTA button click → send the raw button label string to the agent via sendText
   const handleCtaClick = useCallback(
     async (button: string) => {
-      // Add locally so user sees it immediately
+      // Show it locally immediately so the farmer sees their selection
       setLocalMessages((prev) => [
         ...prev,
         {
@@ -109,9 +114,10 @@ export function ChatView({ farmer }: ChatViewProps) {
           timestamp: Date.now(),
         },
       ]);
-      await send(button);
+      // Send raw string — backend session.generate_reply(user_input=text) receives it
+      await room.localParticipant.sendText(button);
     },
-    [send]
+    [room]
   );
 
   const farmerName = farmer?.name ?? 'Farmer';

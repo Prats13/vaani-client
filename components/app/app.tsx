@@ -52,7 +52,15 @@ function VaaniSession({
     });
   }, [appConfig, farmerPhone]);
 
-  const session = useSession(tokenSource);
+  // agentConnectTimeoutMilliseconds is a valid option — source:
+  // github.com/livekit/components-js → packages/react/src/hooks/useSession.ts (UseSessionCommonOptions)
+  // The DEFAULT is 20_000ms (20s), defined in useAgent.ts line 21 as:
+  //   const DEFAULT_AGENT_CONNECT_TIMEOUT_MILLISECONDS = 20_000;
+  // Extending to 2 minutes so the AI agent has time to spin up before
+  // LiveKit marks the session as failed and disconnects the farmer.
+  const session = useSession(tokenSource, {
+    agentConnectTimeoutMilliseconds: 120_000,
+  });
 
   return (
     <AgentSessionProvider session={session}>
