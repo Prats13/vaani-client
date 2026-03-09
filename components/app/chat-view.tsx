@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { nanoid } from 'nanoid';
 import { RoomEvent } from 'livekit-client';
+import { nanoid } from 'nanoid';
 import {
   useAgent,
   useRoomContext,
