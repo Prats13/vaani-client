@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       : `vaani_user_${Math.floor(Math.random() * 10_000)}`;
     const participantName = farmerPhone || 'Farmer';
     const roomName = farmerPhone
-      ? `vaani_room_${farmerPhone.replace(/\D/g, '')}`
+      ? `vaani_room_${farmerPhone.replace(/\D/g, '')}_${Date.now()}`
       : `vaani_room_${Math.floor(Math.random() * 10_000)}`;
 
     const participantToken = await createParticipantToken(
