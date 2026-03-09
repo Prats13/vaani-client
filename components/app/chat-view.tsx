@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
+import { RoomEvent } from 'livekit-client';
 import {
   useAgent,
   useRoomContext,
@@ -54,28 +55,48 @@ export function ChatView({ farmer }: ChatViewProps) {
   const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Convert LiveKit messages to UIMessage format, detecting CTA JSON
-  const allMessages = useMemo<UIMessage[]>(() => {
-    const lk: UIMessage[] = livekitMessages.map((m) => {
-      const cta = parseCtaMessage(m.message);
-      if (cta) {
-        return {
-          id: m.id,
-          type: 'cta',
-          message: cta.message,
-          buttons: cta.buttons,
-          isUser: false,
-          timestamp: m.timestamp,
-        } as UIMessage;
+  // Listen for raw data-channel messages (CTA JSON sent via publish_data on the backend)
+  useEffect(() => {
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const text = new TextDecoder().decode(payload);
+        const cta = parseCtaMessage(text);
+        if (cta) {
+          setLocalMessages((prev) => [
+            ...prev,
+            {
+              id: nanoid(),
+              type: 'cta',
+              message: cta.message,
+              buttons: cta.buttons,
+              isUser: false,
+              timestamp: Date.now(),
+            } as UIMessage,
+          ]);
+        }
+      } catch {
+        // not a valid UTF-8 / JSON payload — ignore
       }
-      return {
+    };
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+    };
+  }, [room]);
+
+  // Convert LiveKit messages to UIMessage format.
+  // CTA JSON arrives via data channel (handled above), so skip any JSON CTA that
+  // might bleed through the chat protocol to avoid duplicates.
+  const allMessages = useMemo<UIMessage[]>(() => {
+    const lk: UIMessage[] = livekitMessages
+      .filter((m) => !parseCtaMessage(m.message))
+      .map((m) => ({
         id: m.id,
         type: 'text',
         content: m.message,
         isUser: m.from?.isLocal ?? false,
         timestamp: m.timestamp,
-      };
-    });
+      }));
     return [...lk, ...localMessages].sort((a, b) => a.timestamp - b.timestamp);
   }, [livekitMessages, localMessages]);
 
