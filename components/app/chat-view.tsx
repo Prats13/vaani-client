@@ -78,7 +78,9 @@ export function ChatView({ farmer }: ChatViewProps) {
       }
     };
     room.on(RoomEvent.DataReceived, handleData);
-    return () => { room.off(RoomEvent.DataReceived, handleData); };
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+    };
   }, [room]);
 
   // Agent speech transcripts from useSessionMessages — filter out any CTA JSON
