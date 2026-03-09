@@ -4,12 +4,12 @@ import { useRef, useState } from 'react';
 import { useLocalParticipant } from '@livekit/components-react';
 import {
   Camera,
+  FilePdf,
   Image,
   Microphone,
   PaperPlaneTilt,
   Paperclip,
   StopCircle,
-  FilePdf,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/shadcn/utils';
 import type { AttachmentInput } from './chat-message-bubble';
