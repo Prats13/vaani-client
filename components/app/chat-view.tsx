@@ -47,9 +47,6 @@ interface ChatViewProps {
 export function ChatView({ farmer }: ChatViewProps) {
   const session = useSessionContext();
   const { messages: livekitMessages } = useSessionMessages(session);
-  // Use room.localParticipant.sendText() — the backend's data_received handler
-  // expects raw UTF-8 text, which sendText() produces. useChat().send() wraps the
-  // message in a different encoding the backend won't decode correctly.
   const room = useRoomContext();
   const { state: agentState } = useAgent();
   const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
@@ -106,9 +103,22 @@ export function ChatView({ farmer }: ChatViewProps) {
   }, [allMessages]);
 
   const handleSendText = async (text: string) => {
-    // sendText sends a raw UTF-8 string that the backend data_received handler reads directly.
-    // Do NOT use publishData() (wrong encoding) or useChat().send() (wraps in chat protocol).
-    await room.localParticipant.sendText(text);
+    // Show the message locally immediately — typed messages don't come back through
+    // useSessionMessages (which only captures speech transcripts + chat protocol).
+    setLocalMessages((prev) => [
+      ...prev,
+      {
+        id: nanoid(),
+        type: 'text',
+        content: text,
+        isUser: true,
+        timestamp: Date.now(),
+      },
+    ]);
+    // Send raw UTF-8 bytes — the backend's data_received handler reads these directly.
+    // publishData() sends raw bytes; sendText() uses the DataStream protocol which the
+    // backend data_received handler does NOT receive.
+    await room.localParticipant.publishData(new TextEncoder().encode(text), { reliable: true });
   };
 
   const handleAttachment = (msg: AttachmentInput) => {
@@ -135,8 +145,8 @@ export function ChatView({ farmer }: ChatViewProps) {
           timestamp: Date.now(),
         },
       ]);
-      // Send raw string — backend session.generate_reply(user_input=text) receives it
-      await room.localParticipant.sendText(button);
+      // Send raw bytes — backend data_received handler receives it
+      await room.localParticipant.publishData(new TextEncoder().encode(button), { reliable: true });
     },
     [room]
   );
