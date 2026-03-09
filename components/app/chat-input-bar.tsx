@@ -1,9 +1,16 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Camera, Image, Microphone, PaperPlaneTilt, Paperclip, StopCircle } from '@phosphor-icons/react';
-import { FilePdf } from '@phosphor-icons/react';
 import { useLocalParticipant } from '@livekit/components-react';
+import {
+  Camera,
+  Image,
+  Microphone,
+  PaperPlaneTilt,
+  Paperclip,
+  StopCircle,
+  FilePdf,
+} from '@phosphor-icons/react';
 import { cn } from '@/lib/shadcn/utils';
 import type { AttachmentInput } from './chat-message-bubble';
 
@@ -168,12 +175,18 @@ export function ChatInputBar({ onSendText, onAttachment }: ChatInputBarProps) {
           onClick={toggleMic}
           className={cn(
             'flex-shrink-0 rounded-full p-2.5 text-white transition-colors',
-            isMicOn ? 'animate-pulse bg-red-500 hover:bg-red-600' : 'bg-[#25D366] hover:bg-[#1ebe5d]'
+            isMicOn
+              ? 'animate-pulse bg-red-500 hover:bg-red-600'
+              : 'bg-[#25D366] hover:bg-[#1ebe5d]'
           )}
           aria-label={isMicOn ? 'Stop speaking' : 'Tap to speak'}
           title={isMicOn ? 'Tap to stop speaking' : 'Tap to speak'}
         >
-          {isMicOn ? <StopCircle size={20} weight="fill" /> : <Microphone size={20} weight="fill" />}
+          {isMicOn ? (
+            <StopCircle size={20} weight="fill" />
+          ) : (
+            <Microphone size={20} weight="fill" />
+          )}
         </button>
       )}
     </div>
