@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RoomEvent } from 'livekit-client';
 import { nanoid } from 'nanoid';
 import {
   useAgent,
@@ -51,30 +52,47 @@ export function ChatView({ farmer }: ChatViewProps) {
   const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Convert LiveKit messages to UIMessage format.
-  // CTA JSON arrives via the chat protocol (send_text on the backend), so detect it
-  // here and render as CTA bubbles instead of text.
-  const allMessages = useMemo<UIMessage[]>(() => {
-    const lk: UIMessage[] = livekitMessages.map((m) => {
-      const cta = parseCtaMessage(m.message);
-      if (cta) {
-        return {
-          id: m.id,
-          type: 'cta',
-          message: cta.message,
-          buttons: cta.buttons,
-          isUser: false,
-          timestamp: m.timestamp,
-        } as UIMessage;
+  // Listen for CTA JSON sent via publish_data from the backend.
+  // publish_data fires RoomEvent.DataReceived with raw bytes — correct for CTAs.
+  // Agent speech transcripts come through useSessionMessages separately.
+  useEffect(() => {
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const text = new TextDecoder().decode(payload);
+        const cta = parseCtaMessage(text);
+        if (cta) {
+          setLocalMessages((prev) => [
+            ...prev,
+            {
+              id: nanoid(),
+              type: 'cta',
+              message: cta.message,
+              buttons: cta.buttons,
+              isUser: false,
+              timestamp: Date.now(),
+            } as UIMessage,
+          ]);
+        }
+      } catch {
+        // ignore non-UTF8 payloads
       }
-      return {
+    };
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => { room.off(RoomEvent.DataReceived, handleData); };
+  }, [room]);
+
+  // Agent speech transcripts from useSessionMessages — filter out any CTA JSON
+  // that might bleed through, show everything else as text bubbles.
+  const allMessages = useMemo<UIMessage[]>(() => {
+    const lk: UIMessage[] = livekitMessages
+      .filter((m) => !parseCtaMessage(m.message))
+      .map((m) => ({
         id: m.id,
-        type: 'text',
+        type: 'text' as const,
         content: m.message,
         isUser: m.from?.isLocal ?? false,
         timestamp: m.timestamp,
-      } as UIMessage;
-    });
+      }));
     return [...lk, ...localMessages].sort((a, b) => a.timestamp - b.timestamp);
   }, [livekitMessages, localMessages]);
 
